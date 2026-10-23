@@ -1,0 +1,53 @@
+name: fox-insurance-demo
+services:
+  web:
+    build: ./frontend
+    image: fox-insurance-web:1.0
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    image: fox-insurance-api:1.0
+    environment:
+      PORT: "3000"
+      MONGODB_URI: mongodb://mongodb:27017
+    ports:
+      - "3000:3000" # Classroom inspection only; omit in production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 10s
+    restart: unless-stopped
+
+  mongodb:
+    build: ./mongodb
+    image: fox-insurance-mongodb:1.0
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand({ping:1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
